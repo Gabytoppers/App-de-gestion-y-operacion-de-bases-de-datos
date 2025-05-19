@@ -51,61 +51,60 @@ def dashboard():
     return render_template("dashboard.html")
 
 # CRUD
-@app.route("/productos", methods=["GET", "POST", "PUT", "DELETE"])
-def productos():
-    if request.method == "GET":
-        productos = mongo_atlas.db.productos.find()  # Usar mongo_atlas para obtener los productos
-        return jsonify([{**producto, "_id": str(producto["_id"])} for producto in productos])
+from flask import Flask, request, jsonify
+from bson import ObjectId
 
-    elif request.method == "POST":
-        data = request.get_json()
-        producto = {
-            "nombre": data.get("nombre"),
-            "cantidad": int(data.get("cantidad")),
-            "precio": float(data.get("precio"))
-        }
+app = Flask(__name__)
 
-        # Insertar en ambas bases de datos
-        mongo_atlas.db.productos.insert_one(producto)
-        mongo_local.db.productos.insert_one(producto)  # espejo
+@app.route("/productos", methods=["GET"])
+def obtener_productos():
+    productos = mongo_atlas.db.productos.find()
+    return jsonify([{**producto, "_id": str(producto["_id"])} for producto in productos])
 
-        return jsonify({"message": "Producto agregado"}), 201
+@app.route("/productos/agregar", methods=["POST"])
+def agregar_producto():
+    data = request.get_json()
+    producto = {
+        "nombre": data.get("nombre"),
+        "cantidad": int(data.get("cantidad")),
+        "precio": float(data.get("precio"))
+    }
 
-    elif request.method == "PUT":
-        data = request.get_json()
-        producto_id = data.get("id")
-        cambios = {
-            "nombre": data.get("nombre"),
-            "cantidad": int(data.get("cantidad")),
-            "precio": float(data.get("precio"))
-        }
+    mongo_atlas.db.productos.insert_one(producto)
+    mongo_local.db.productos.insert_one(producto)
+    return jsonify({"message": "Producto agregado"}), 201
 
-        filtro = {"_id": ObjectId(producto_id)}
+@app.route("/productos/actualizar", methods=["PUT"])
+def actualizar_producto():
+    data = request.get_json()
+    producto_id = data.get("id")
+    cambios = {
+        "nombre": data.get("nombre"),
+        "cantidad": int(data.get("cantidad")),
+        "precio": float(data.get("precio"))
+    }
 
-       
-        if not mongo_atlas.db.productos.find_one(filtro):
-            return jsonify({"message": "Producto no encontrado"}), 404
+    filtro = {"_id": ObjectId(producto_id)}
 
-        
-        mongo_atlas.db.productos.update_one(filtro, {"$set": cambios})
-        mongo_local.db.productos.update_one(filtro, {"$set": cambios})  # espejo
+    if not mongo_atlas.db.productos.find_one(filtro):
+        return jsonify({"message": "Producto no encontrado"}), 404
 
-        return jsonify({"message": "Producto actualizado"})
+    mongo_atlas.db.productos.update_one(filtro, {"$set": cambios})
+    mongo_local.db.productos.update_one(filtro, {"$set": cambios})
+    return jsonify({"message": "Producto actualizado"})
 
-    elif request.method == "DELETE":
-        data = request.get_json()
-        producto_id = data.get("id")
-        filtro = {"_id": ObjectId(producto_id)}
+@app.route("/productos/eliminar", methods=["DELETE"])
+def eliminar_producto():
+    data = request.get_json()
+    producto_id = data.get("id")
+    filtro = {"_id": ObjectId(producto_id)}
 
-        
-        if not mongo_atlas.db.productos.find_one(filtro):
-            return jsonify({"message": "Producto no encontrado"}), 404
+    if not mongo_atlas.db.productos.find_one(filtro):
+        return jsonify({"message": "Producto no encontrado"}), 404
 
-        # Eliminar en ambas bases de datos
-        mongo_atlas.db.productos.delete_one(filtro)
-        mongo_local.db.productos.delete_one(filtro)  # espejo
-
-        return jsonify({"message": "Producto eliminado"})
+    mongo_atlas.db.productos.delete_one(filtro)
+    mongo_local.db.productos.delete_one(filtro)
+    return jsonify({"message": "Producto eliminado"})
 
 @app.route("/reporte", methods=["GET"])
 def generar_reporte():
