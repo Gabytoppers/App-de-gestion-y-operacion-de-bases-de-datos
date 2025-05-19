@@ -51,10 +51,6 @@ def dashboard():
     return render_template("dashboard.html")
 
 # CRUD
-from flask import Flask, request, jsonify
-from bson import ObjectId
-
-app = Flask(__name__)
 
 @app.route("/productos", methods=["GET"])
 def obtener_productos():
