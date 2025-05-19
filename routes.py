@@ -4,6 +4,7 @@ import openpyxl
 from io import BytesIO
 from hashlib import md5
 from bson import ObjectId
+from bson.errors import InvalidId
 
 app = Flask(__name__)
 
@@ -35,6 +36,10 @@ def register():
     data = request.get_json()
     usuario = data.get("usuario")
     password = data.get("password")
+
+    if not usuario or not password:
+        return jsonify({"message": "Faltan campos"}), 400
+
     password_hash = md5(password.encode()).hexdigest()
 
     if mongo_atlas.db.usuarios.find_one({"usuario": usuario}):
@@ -50,7 +55,7 @@ def register():
 def dashboard():
     return render_template("dashboard.html")
 
-# CRUD
+# CRUD PRODUCTOS
 
 @app.route("/productos", methods=["GET"])
 def obtener_productos():
@@ -60,10 +65,23 @@ def obtener_productos():
 @app.route("/productos/agregar", methods=["POST"])
 def agregar_producto():
     data = request.get_json()
+    nombre = data.get("nombre")
+    cantidad = data.get("cantidad")
+    precio = data.get("precio")
+
+    if not nombre or cantidad is None or precio is None:
+        return jsonify({"message": "Faltan datos para agregar el producto"}), 400
+
+    try:
+        cantidad = int(cantidad)
+        precio = float(precio)
+    except (ValueError, TypeError):
+        return jsonify({"message": "Cantidad o precio inválidos"}), 400
+
     producto = {
-        "nombre": data.get("nombre"),
-        "cantidad": int(data.get("cantidad")),
-        "precio": float(data.get("precio"))
+        "nombre": nombre,
+        "cantidad": cantidad,
+        "precio": precio
     }
 
     mongo_atlas.db.productos.insert_one(producto)
@@ -74,13 +92,29 @@ def agregar_producto():
 def actualizar_producto():
     data = request.get_json()
     producto_id = data.get("id")
-    cambios = {
-        "nombre": data.get("nombre"),
-        "cantidad": int(data.get("cantidad")),
-        "precio": float(data.get("precio"))
-    }
+    nombre = data.get("nombre")
+    cantidad = data.get("cantidad")
+    precio = data.get("precio")
 
-    filtro = {"_id": ObjectId(producto_id)}
+    if not producto_id or not nombre or cantidad is None or precio is None:
+        return jsonify({"message": "Faltan datos para actualizar el producto"}), 400
+
+    try:
+        filtro = {"_id": ObjectId(producto_id)}
+    except InvalidId:
+        return jsonify({"message": "ID inválido"}), 400
+
+    try:
+        cantidad = int(cantidad)
+        precio = float(precio)
+    except (ValueError, TypeError):
+        return jsonify({"message": "Cantidad o precio inválidos"}), 400
+
+    cambios = {
+        "nombre": nombre,
+        "cantidad": cantidad,
+        "precio": precio
+    }
 
     if not mongo_atlas.db.productos.find_one(filtro):
         return jsonify({"message": "Producto no encontrado"}), 404
@@ -93,7 +127,14 @@ def actualizar_producto():
 def eliminar_producto():
     data = request.get_json()
     producto_id = data.get("id")
-    filtro = {"_id": ObjectId(producto_id)}
+
+    if not producto_id:
+        return jsonify({"message": "Falta ID para eliminar producto"}), 400
+
+    try:
+        filtro = {"_id": ObjectId(producto_id)}
+    except InvalidId:
+        return jsonify({"message": "ID inválido"}), 400
 
     if not mongo_atlas.db.productos.find_one(filtro):
         return jsonify({"message": "Producto no encontrado"}), 404
@@ -130,3 +171,4 @@ def generar_reporte():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
