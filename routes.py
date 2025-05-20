@@ -5,8 +5,11 @@ from io import BytesIO
 from hashlib import md5
 from bson import ObjectId
 from bson.errors import InvalidId
+from flask_cors import CORS
 
 app = Flask(__name__)
+
+CORS(app)
 
 # Configura las URIs antes de llamar a init_db
 app.config["MONGO_URI"] = Config.MONGO_URI
